@@ -61,4 +61,15 @@
                     body: formData
                 });
                 
-                if (
+                if (!response.ok) throw new Error('Segmentation failed');
+                
+                const blob = await response.blob();
+                segmentedImage.src = URL.createObjectURL(blob);
+                segmentedImage.style.display = 'block';
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        };
+    </script>
+</body>
+</html>
