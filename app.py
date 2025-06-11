@@ -1,35 +1,40 @@
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, send_file, jsonify, render_template
 from PIL import Image
 import io
 import torch
-import torchvision.transforms as T
 import numpy as np
+import os.path
+
+# Import our custom wall segmentation module
+from wall_segmentation import load_wall_segmentation_model, segment_walls
 
 app = Flask(__name__)
 
-# Load DeepLabV3 model
-model = torch.hub.load('pytorch/vision:v0.10.0', 'deeplabv3_resnet101', pretrained=True)
-model.eval()
+# Path to the pretrained model weights
+ENCODER_PATH = os.path.join('model_weights', 'transfer_encoder.pth')
+DECODER_PATH = os.path.join('model_weights', 'transfer_decoder.pth')
 
-# COCO class for wall is 12 (for ADE20K, wall is 12, for COCO, wall is not present)
-# DeepLabV3 pretrained on COCO does not have 'wall' class, but ADE20K does. We'll use 12 for wall in ADE20K.
-WALL_CLASS = 12
-
-# Preprocessing
-transform = T.Compose([
-    T.Resize(520),
-    T.ToTensor(),
-    T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-])
-
-def segment_walls(image):
-    input_tensor = transform(image).unsqueeze(0)
-    with torch.no_grad():
-        output = model(input_tensor)['out'][0]
-    output_predictions = output.argmax(0).byte().cpu().numpy()
-    # Mask for wall
-    mask = (output_predictions == WALL_CLASS).astype(np.uint8) * 255
-    return mask
+# Load the wall segmentation model
+if os.path.exists(ENCODER_PATH) and os.path.exists(DECODER_PATH):
+    print(f"Loading wall segmentation model from {ENCODER_PATH} and {DECODER_PATH}")
+    segmentation_model = load_wall_segmentation_model(ENCODER_PATH, DECODER_PATH)
+    
+    # Function that uses our loaded model
+    def segment_walls_image(image):
+        from wall_segmentation import segment_walls as segment_function
+        mask = segment_function(segmentation_model, image)
+        return mask
+else:
+    # If model weights are not found, print message and use dummy function
+    print(f"WARNING: Model weights not found at {ENCODER_PATH} or {DECODER_PATH}")
+    print("Please download model weights from: https://drive.google.com/drive/folders/1xh-MBuALwvNNFnLe-eofZU_wn8y3ZxJg")
+    print("Download the 'Transfer learning - entire decoder' folder and place the weights in the model_weights directory")
+    
+    def segment_walls_image(image):
+        # Return empty mask if no model is available
+        img_array = np.array(image)
+        h, w = img_array.shape[:2]
+        return np.zeros((h, w), dtype=np.uint8)
 
 @app.route('/segment', methods=['POST'])
 def segment():
@@ -37,12 +42,16 @@ def segment():
         return jsonify({'error': 'No image uploaded'}), 400
     file = request.files['image']
     image = Image.open(file.stream).convert('RGB')
-    mask = segment_walls(image)
+    mask = segment_walls_image(image)
     mask_img = Image.fromarray(mask)
     buf = io.BytesIO()
     mask_img.save(buf, format='PNG')
     buf.seek(0)
     return send_file(buf, mimetype='image/png')
+
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 if __name__ == '__main__':
     app.run(debug=True)

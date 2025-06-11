@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Segmentation Upload</title>    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 800px; margin: auto; }
+        .image-container { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
+        .image-box { flex: 1; min-width: 300px; }
+        img { max-width: 100%; border: 1px solid #ddd; border-radius: 4px; }
+        button { background-color: #4CAF50; color: white; border: none; padding: 10px 20px; 
+                cursor: pointer; border-radius: 4px; margin-left: 10px; }
+        button:hover { background-color: #45a049; }
+        input[type=file] { border: 1px solid #ddd; padding: 8px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Wall Segmentation Tool</h2>
+        <form id="uploadForm">
+            <input type="file" id="imageInput" name="image" accept="image/*" required />
+            <button type="submit">Segment Walls</button>
+        </form>
+        <div id="result">
+            <h3>Results:</h3>
+            <div class="image-container">
+                <div class="image-box">
+                    <h4>Original Image</h4>
+                    <img id="originalImage" src="" alt="Original Image" style="display:none;" />
+                </div>
+                <div class="image-box">
+                    <h4>Wall Segmentation Mask</h4>
+                    <img id="segmentedImage" src="" alt="Segmented Result" style="display:none;" />
+                </div>
+            </div>
+        </div>
+    </div>    <script>
+        const form = document.getElementById('uploadForm');
+        const segmentedImage = document.getElementById('segmentedImage');
+        const originalImage = document.getElementById('originalImage');
+        
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById('imageInput');
+            if (!fileInput.files.length) return;
+            
+            // Display original image
+            const file = fileInput.files[0];
+            originalImage.src = URL.createObjectURL(file);
+            originalImage.style.display = 'block';
+            
+            // Send image for segmentation
+            const formData = new FormData();
+            formData.append('image', file);
+            segmentedImage.style.display = 'none';
+            
+            try {
+                const response = await fetch('/segment', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (
