@@ -40,10 +40,35 @@ else:
 def segment():
     if 'image' not in request.files:
         return jsonify({'error': 'No image uploaded'}), 400
+    
     file = request.files['image']
     image = Image.open(file.stream).convert('RGB')
+    
+    # Get original dimensions
+    width, height = image.size
+    
+    # Resize large images to improve performance (max dimension of 1024 pixels)
+    max_dim = 1024
+    if width > max_dim or height > max_dim:
+        # Calculate new dimensions while preserving aspect ratio
+        if width > height:
+            new_width = max_dim
+            new_height = int(height * (max_dim / width))
+        else:
+            new_height = max_dim
+            new_width = int(width * (max_dim / height))
+        
+        # Resize the image
+        print(f"Resizing image from {width}x{height} to {new_width}x{new_height} for faster processing")
+        image = image.resize((new_width, new_height), Image.LANCZOS)
+    
+    # Process the image
     mask = segment_walls_image(image)
+    
+    # Create output image
     mask_img = Image.fromarray(mask)
+    
+    # Return the segmentation mask
     buf = io.BytesIO()
     mask_img.save(buf, format='PNG')
     buf.seek(0)

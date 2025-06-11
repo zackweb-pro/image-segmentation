@@ -3,25 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Segmentation Upload</title>    <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
+    <title>Image Segmentation Upload</title>    <style>        body { font-family: Arial, sans-serif; margin: 40px; }
         .container { max-width: 800px; margin: auto; }
         .image-container { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
         .image-box { flex: 1; min-width: 300px; }
+        .info-box { 
+            background-color: #f8f9fa; 
+            border-left: 4px solid #4CAF50; 
+            padding: 10px 15px; 
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
         img { max-width: 100%; border: 1px solid #ddd; border-radius: 4px; }
         button { background-color: #4CAF50; color: white; border: none; padding: 10px 20px; 
                 cursor: pointer; border-radius: 4px; margin-left: 10px; }
         button:hover { background-color: #45a049; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
         input[type=file] { border: 1px solid #ddd; padding: 8px; border-radius: 4px; }
+        
+        /* Loading spinner and progress bar styles */
+        .loading-container { display: none; margin-top: 20px; text-align: center; }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #4CAF50;
+            display: inline-block;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .progress-bar-container {
+            width: 100%;
+            background-color: #f3f3f3;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .progress-bar {
+            height: 10px;
+            background-color: #4CAF50;
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .status-text {
+            margin-top: 10px;
+            font-style: italic;
+        }
     </style>
 </head>
-<body>
-    <div class="container">
+<body>    <div class="container">
         <h2>Wall Segmentation Tool</h2>
+        <p>Upload an image containing walls, and the AI will identify and highlight them.</p>
+        <div class="info-box">
+            <p><strong>Note:</strong> Large images will be automatically resized for faster processing. 
+            Processing time depends on image complexity and server load.</p>
+        </div>
         <form id="uploadForm">
             <input type="file" id="imageInput" name="image" accept="image/*" required />
             <button type="submit">Segment Walls</button>
-        </form>
+        </form><div class="loading-container" id="loadingContainer">
+            <div class="spinner"></div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="status-text" id="statusText">Processing image...</div>
+        </div>
+        
         <div id="result">
             <h3>Results:</h3>
             <div class="image-container">
@@ -39,6 +90,45 @@
         const form = document.getElementById('uploadForm');
         const segmentedImage = document.getElementById('segmentedImage');
         const originalImage = document.getElementById('originalImage');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const progressBar = document.getElementById('progressBar');
+        const statusText = document.getElementById('statusText');
+        const submitButton = form.querySelector('button[type="submit"]');
+        
+        // Simulate progress function
+        function simulateProgress() {
+            let progress = 0;
+            const maxProgress = 90; // Only go to 90%, the last 10% when response arrives
+            
+            // Start with faster progress, then slow down to simulate processing time
+            const interval = setInterval(() => {
+                if (progress < 30) {
+                    progress += 5;
+                } else if (progress < 60) {
+                    progress += 2;
+                } else if (progress < maxProgress) {
+                    progress += 0.5;
+                } else {
+                    clearInterval(interval);
+                    return;
+                }
+                
+                progressBar.style.width = `${progress}%`;
+                
+                // Update status text based on progress
+                if (progress < 25) {
+                    statusText.textContent = "Loading image...";
+                } else if (progress < 50) {
+                    statusText.textContent = "Preprocessing...";
+                } else if (progress < 75) {
+                    statusText.textContent = "Analyzing walls...";
+                } else {
+                    statusText.textContent = "Generating segmentation mask...";
+                }
+            }, 200);
+            
+            return interval;
+        }
         
         form.onsubmit = async (e) => {
             e.preventDefault();
@@ -50,12 +140,24 @@
             originalImage.src = URL.createObjectURL(file);
             originalImage.style.display = 'block';
             
+            // Hide previous result and show loading
+            segmentedImage.style.display = 'none';
+            loadingContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+            statusText.textContent = "Starting...";
+            
+            // Disable submit button
+            submitButton.disabled = true;
+            
+            // Start progress simulation
+            const progressInterval = simulateProgress();
+            
             // Send image for segmentation
             const formData = new FormData();
             formData.append('image', file);
-            segmentedImage.style.display = 'none';
             
             try {
+                const startTime = Date.now();
                 const response = await fetch('/segment', {
                     method: 'POST',
                     body: formData
@@ -64,10 +166,27 @@
                 if (!response.ok) throw new Error('Segmentation failed');
                 
                 const blob = await response.blob();
+                
+                // Complete the progress bar
+                clearInterval(progressInterval);
+                progressBar.style.width = '100%';
+                statusText.textContent = `Processing completed in ${((Date.now() - startTime)/1000).toFixed(1)}s`;
+                
+                // Show the result
                 segmentedImage.src = URL.createObjectURL(blob);
                 segmentedImage.style.display = 'block';
+                
+                // Hide loading indicator after a short delay
+                setTimeout(() => {
+                    loadingContainer.style.display = 'none';
+                }, 1000);
             } catch (err) {
+                clearInterval(progressInterval);
+                loadingContainer.style.display = 'none';
                 alert('Error: ' + err.message);
+            } finally {
+                // Re-enable submit button
+                submitButton.disabled = false;
             }
         };
     </script>
