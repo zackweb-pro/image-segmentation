@@ -1,0 +1,69 @@
+# Logs
+Front-End/logs
+Front-End/*.log
+Front-End/npm-debug.log*
+Front-End/yarn-debug.log*
+Front-End/yarn-error.log*
+Front-End/pnpm-debug.log*
+Front-End/lerna-debug.log*
+
+# Frontend dependencies and build files
+Front-End/node_modules
+Front-End/dist
+Front-End/dist-ssr
+Front-End/*.local
+
+# Editor directories and files
+Front-End/.vscode/*
+Front-End/!.vscode/extensions.json
+Front-End/.idea
+Front-End/.DS_Store
+Front-End/*.suo
+Front-End/*.ntvs*
+Front-End/*.njsproj
+Front-End/*.sln
+Front-End/*.sw?
+
+# Python related
+__pycache__/
+Back-End/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+
+# Flask Instance
+instance/
+.webassets-cache
+
+# Large model weights (optional - if you don't want to commit these)
+# Back-End/model_weights/*.pth
+
+# Other common files to ignore
+.DS_Store
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.vscode/
